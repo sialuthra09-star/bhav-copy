@@ -1,0 +1,80 @@
+from pathlib import Path
+import pandas as pd
+
+# =====================================
+# SETTINGS
+# =====================================
+
+START_DATE = "2026-09-01"
+END_DATE = "2026-09-30"
+
+RAW_DIR = Path(r"D:\bhav_data\equities\raw")
+
+OUTPUT_FILE = Path(
+    r"D:\bhav_data\equities\NSE_Equity_Bhavcopy_September_2026.xlsx"
+)
+
+# =====================================
+# READ AND COMBINE DAILY CSV FILES
+# =====================================
+
+start = pd.to_datetime(START_DATE).date()
+end = pd.to_datetime(END_DATE).date()
+
+csv_files = sorted(
+    RAW_DIR.glob("NSE_Equity_Bhavcopy_*.csv")
+)
+
+print(f"Daily CSV files found: {len(csv_files)}")
+
+frames = []
+
+for file in csv_files:
+    try:
+        date_text = file.stem[-8:]
+        file_date = pd.to_datetime(
+            date_text, format="%Y%m%d"
+        ).date()
+
+        # Only include the selected month
+        if not start <= file_date <= end:
+            continue
+
+        df = pd.read_csv(file)
+
+        if df.empty:
+            continue
+
+        df.insert(0, "DATA_DATE", file_date)
+        frames.append(df)
+
+        print(f"[ADDED] {file.name}: {len(df)} rows")
+
+    except Exception as error:
+        print(f"[ERROR] {file.name}: {error}")
+
+# =====================================
+# CREATE ONE EXCEL WORKBOOK
+# =====================================
+
+if frames:
+    combined = pd.concat(frames, ignore_index=True)
+
+    with pd.ExcelWriter(
+        OUTPUT_FILE,
+        engine="openpyxl"
+    ) as writer:
+        combined.to_excel(
+            writer,
+            sheet_name="Equity_Data",
+            index=False
+        )
+
+    print("\nEXCEL FILE CREATED SUCCESSFULLY")
+    print(f"Trading days included: {len(frames)}")
+    print(f"Total rows: {len(combined):,}")
+    print(f"Saved at: {OUTPUT_FILE}")
+
+else:
+    print("No CSV files found for this date range.")
+    print(f"Check folder: {RAW_DIR}")
