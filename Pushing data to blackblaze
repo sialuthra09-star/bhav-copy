@@ -1,0 +1,53 @@
+import os
+import boto3
+from pathlib import Path
+from botocore.config import Config
+
+# Backblaze credentials
+KEY_ID = os.environ["B2_KEY_ID"]
+APPLICATION_KEY = os.environ["B2_APPLICATION_KEY"]
+
+# Backblaze details
+BUCKET = "SSEIQuantTradingStorage"
+ENDPOINT = "https://s3.eu-central-003.backblazeb2.com"
+
+# Combined Parquet file
+LOCAL_FILE = Path("ALL_NSE_STOCKS_2025_2026.parquet")
+
+# Destination inside Backblaze
+B2_FILE = "Sia/ALL_NSE_STOCKS_2025_2026.parquet"
+
+if not LOCAL_FILE.exists():
+    raise FileNotFoundError(
+        f"File not found: {LOCAL_FILE.resolve()}"
+    )
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=ENDPOINT,
+    aws_access_key_id=KEY_ID,
+    aws_secret_access_key=APPLICATION_KEY,
+    region_name="eu-central-003",
+    config=Config(signature_version="s3v4")
+)
+
+print("Uploading combined NSE Parquet file...")
+print("File size:", round(LOCAL_FILE.stat().st_size / (1024**3), 3), "GB")
+
+s3.upload_file(
+    str(LOCAL_FILE),
+    BUCKET,
+    B2_FILE
+)
+
+print("\nSUCCESS! Combined file uploaded.")
+print("Bucket:", BUCKET)
+print("Destination:", B2_FILE)
+
+# Verify uploaded file
+result = s3.head_object(
+    Bucket=BUCKET,
+    Key=B2_FILE
+)
+
+print("Verified cloud file size:", result["ContentLength"], "bytes")
